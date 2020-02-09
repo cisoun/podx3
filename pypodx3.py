@@ -8,19 +8,19 @@ pyusb is required.
 This code is released under GPL v2. Have fun.
 
 NOTE:
-	before using, look at the end of the file and uncomment functon calls you
-	want to use
+    before using, look at the end of the file and uncomment functon calls you
+    want to use
 
 USAGE:
-	1) turn on pod
-	2) look at the end of this file and comment/uncomment function calls you
-	   want to test
-	2.1) it sometimes doesn't work for the first time, works for the second and
-	   then doesn't work until pod is turned off and on again.
-	3) you'll see configuration packets coming as you play with x3 controls
+    1) turn on pod
+    2) look at the end of this file and comment/uncomment function calls you
+       want to test
+    2.1) it sometimes doesn't work for the first time, works for the second and
+       then doesn't work until pod is turned off and on again.
+    3) you'll see configuration packets coming as you play with x3 controls
 
-	You can get interactive console: run it using
-	python -i pypodx3.py then you can control pod object...
+    You can get interactive console: run it using
+    python -i pypodx3.py then you can control pod object...
 
 """
 
@@ -40,7 +40,13 @@ def formathex(buffer):
         return "== " + str(buffer)
     for item in buffer:
         buf2.append("%02X" % (item))
-    return string.join(buf2," ")
+    return " ".join(buf2)
+
+
+def read_file(path):
+    with open(path, 'r') as f:
+        return f.readline()
+
 
 class POD:
     VENDOR_ID     = 0x0E41   #: Vendor Id
@@ -55,46 +61,49 @@ class POD:
     USB_VENDOR_D2H = 0xC0
 
     def __init__(self,) :
-      self.useKernelDriver = False
-      for i in range(0, 9):
-          self.hwdepDevice = "hwC%dD0" % (i)
-          try:
-              if file("/sys/class/sound/%s/device/id" % (self.hwdepDevice)).read().find("PODX3") != -1:
-                  self.hwdep = io.FileIO("/dev/snd/" + self.hwdepDevice, "rb+")
-                  self.useKernelDriver = True
-                  return
-          except:
-              # traceback.print_exc()
-              pass
-      
-      import usb.util, usb.core
-      self.device = usb.core.find(idVendor = POD.VENDOR_ID, idProduct = POD.PRODUCT_ID)
-      if self.device.is_kernel_driver_active(0):
-          try:
-              self.device.detach_kernel_driver(0)
-              print "kernel driver detached"
-          except usb.core.USBError as e:
-              sys.exit("Could not detach kernel driver: %s" % str(e))
-      else:
-          print "no kernel driver attached"
+        self.useKernelDriver = False
+        for i in range(0, 9):
+            self.hwdepDevice = "hwC%dD0" % (i)
+            try:
+                path = "/sys/class/sound/%s/device/id" % (self.hwdepDevice)
+                if read_file(path) == "PODX3\n":
+                    self.hwdep = io.FileIO("/dev/snd/" + self.hwdepDevice, "rb+")
+                    self.useKernelDriver = True
+                    return
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                traceback.print_exc()
+                pass
+
+        import usb.util, usb.core
+        self.device = usb.core.find(idVendor = POD.VENDOR_ID, idProduct = POD.PRODUCT_ID)
+        if self.device.is_kernel_driver_active(0):
+            try:
+                self.device.detach_kernel_driver(0)
+                print("kernel driver detached")
+            except usb.core.USBError as e:
+                sys.exit("Could not detach kernel driver: %s" % str(e))
+        else:
+            print("no kernel driver attached")
 
     def setguitarmic(self):
         """ set guitar/mic mode """
         try:
-            print "g/m:start bulk write"
+            print("g/m:start bulk write")
             buf = [0x18, 0x00, 0x01, 0x00, 0x05, 0x00, 0x0A, 0x40, 0x01, 0x03, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
             sent = self.device.write(POD.BULK_OUT_EP, buf)
-        except Exception, e:
-            print "exception in bulk write:"
-            print e
+        except Exception as e:
+            print("exception in bulk write:")
+            print(e)
 
     def readData(self, dataLen, addr):
         resp = self.device.ctrl_transfer(POD.USB_VENDOR_H2D, POD.L6_X3_CTRL, wValue=(dataLen << 8) | 0x21, wIndex=addr, data_or_wLength=0)
-        #print "resp (ACK)", formathex(resp)
+        #print("resp (ACK)", formathex(resp))
         resp = self.device.ctrl_transfer(POD.USB_VENDOR_D2H, POD.L6_X3_CTRL, wValue=0x12, wIndex=0x00, data_or_wLength=1)
-        #print "resp (x12)", formathex(resp)
+        #print("resp (x12)", formathex(resp))
         resp = self.device.ctrl_transfer(POD.USB_VENDOR_D2H, POD.L6_X3_CTRL, wValue=0x13, wIndex=0x00, data_or_wLength=dataLen)
-        #print "resp (x13)", formathex(resp)
+        #print("resp (x13)", formathex(resp))
         return resp
 
     def init(self):
@@ -102,24 +111,24 @@ class POD:
             return
 
         """ pod initialization - trying to do the same things the original driver does during X3 startup """
-        print "set configuration..."
+        print("set configuration...")
         cfg = self.device.set_configuration(1)
-        print "-- init (expecting 20 10 04)"
+        print("-- init (expecting 20 10 04)")
         resp = self.device.ctrl_transfer(POD.USB_VENDOR_D2H, POD.L6_X3_CTRL, wValue=0x11, wIndex=0x00, data_or_wLength=3)
-        print "resp: %s" % formathex(resp)
-        
+        print("resp: %s" % formathex(resp))
+
         print("-- INIT F000...F080")
         #a sequence i don;t understand yet
         bytes = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x60, 0x68, 0x70, 0x78, 0x80]
         for item in bytes:
             # This looks exactly like $linuxdrv/driver.c/line6_read_data()
             d = self.readData(8, 0xF000 | item)
-            print formathex(d)
+            print(formathex(d))
             resp = self.device.ctrl_transfer(POD.USB_VENDOR_H2D, POD.L6_X3_CTRL, wValue=0x0201, wIndex=0x02, data_or_wLength=0)
-            # print "resp (x201)", formathex(resp)
+            # print("resp (x201)", formathex(resp))
 
         # TODO: not needed?
-        #print "wake up"
+        #print("wake up")
         #resp = self.device.ctrl_transfer(0x00, usb.REQ_SET_FEATURE, wValue=0x01, wIndex=0x00, data_or_wLength=0)
 
     def setparam(self, paramnum, value_percent):
@@ -137,26 +146,28 @@ class POD:
             buf[0x1d] = ord(paramval[1])
             buf[0x1e] = ord(paramval[2])
             buf[0x1f] = ord(paramval[3])
-            print 'val=',paramval, 'paramnum=', paramnum
-            print formathex(buf)
-            print "start bulk write"
+            print('val=',paramval, 'paramnum=', paramnum)
+            print(formathex(buf))
+            print("start bulk write")
             sent = self.device.write(POD.BULK_OUT_EP, buf, 100)
-            print "past write", sent
+            print("past write", sent)
             #sent = self.device.write(POD.BULK_OUT_EP, buf, 100)
-            #print "past write2", sent
+            #print("past write2", sent)
             #this message can be see in usb dumps everythime after changing param value,
             #however it appears only once after cranking param up and down constantly
             resp = self.device.ctrl_transfer(POD.USB_VENDOR_D2H, POD.L6_X3_CTRL, wValue=0x11, wIndex=0x00, data_or_wLength=3)
-            print "resp", resp
-        except Exception, e:
-            print "exception in bulk write:",e
+            print("resp", resp)
+        except Exception as e:
+            print("exception in bulk write:",e)
 
     def get_serial_number2(self):
         if self.useKernelDriver:
-            print("POD Serial: %s" % (file("/sys/class/sound/%s/device/podhd/serial_number" % (self.hwdepDevice)).read()))
+            serial = read_file("/sys/class/sound/%s/device/podhd/serial_number" % (self.hwdepDevice))
+            print("POD Serial: " + serial)
         else:
             d = self.readData(4, 0x80d0)
-            print "POD Serial: %d" % (struct.unpack('<I', ''.join([chr(i) for i in d])))
+            sys.exit(0)
+            print("POD Serial: %d" % (struct.unpack('<I', d.tobytes())))
 
     def read(self):
         if self.useKernelDriver:
@@ -189,22 +200,22 @@ signal.signal(signal.SIGINT, signal_handler)
 #pod.setguitarmic()
 
 if False:
-	# blink the delay button
-	# TODO: the binary stuff should be generated by the classes in the parser module
-	pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 0, 0, 0, 0])))
-	time.sleep(0.3)
-	pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 1, 0, 0, 0])))
-	time.sleep(0.3)
-	pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 0, 0, 0, 0])))
-	time.sleep(0.3)
-	pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 1, 0, 0, 0])))
+    # blink the delay button
+    # TODO: the binary stuff should be generated by the classes in the parser module
+    pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 0, 0, 0, 0])))
+    time.sleep(0.3)
+    pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 1, 0, 0, 0])))
+    time.sleep(0.3)
+    pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 0, 0, 0, 0])))
+    time.sleep(0.3)
+    pod.write(''.join(map(chr, [20, 0, 1, 0, 4, 0, 10, 64, 0, 3, 0, 19, 0, 0, 0, 0, 4, 0, 5, 0, 1, 0, 0, 0])))
 
 while run:
     try:
         resp = pod.read()
         pc.appendData(resp)
     except:
-        #traceback.print_exc()
+        traceback.print_exc()
         pass
 
 pc.stop = True
