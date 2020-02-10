@@ -238,6 +238,7 @@ run = True
 def signal_handler(signal, frame):
     global run
     run = False
+    sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
 #pod.set_param(5, 10)
