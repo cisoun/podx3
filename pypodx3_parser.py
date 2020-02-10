@@ -35,7 +35,7 @@ def printcmd(port, name, data = None):
 class EffectDump:
     def __init__(self, port, data):
         cmdData = data[7:]
-        
+
         which = cmdData[0]
         binData = ''.join(map(chr, cmdData[1:]))
         if which != 1:
@@ -47,7 +47,7 @@ class EffectDump:
 class ConfigCmd:
     def __init__(self, port, data):
         cmdData = data[7:]
-        
+
         which = cmdData[0]
         if which == 0x21:
             # Looks like some kind of ping. When sent either way, the opposite
@@ -75,7 +75,7 @@ class ConfigCmd:
 class PacketParser:
     '''
     Estimated format:
-    
+
     u8 pkt_type;
     union {
         u8 data[256];
@@ -102,7 +102,7 @@ class PacketParser:
         } contents_2;
     } packet;
     '''
-    
+
     def __init__(self):
         self.__types = {
             0x01: self.effectDump,
@@ -111,7 +111,7 @@ class PacketParser:
             0x05: self.intParameter2,
             0x06: self.floatParameter
         }
-        
+
     def __call__(self, port, data):
         if not self.checkDirection(port, data):
             return
@@ -119,7 +119,7 @@ class PacketParser:
             return
         if not self.checkConst(port, data):
             return
-        
+
         if data[0] in self.__types:
             self.__types[data[0]](port, data)
         else:
@@ -154,19 +154,19 @@ class PacketParser:
                 print("@1 != 0: %s" % formathex(port, data))
                 return False
         return True
-    
+
     def effectDump(self, port, data):
         fc = EffectDump(port, data)
-    
+
     def configCmd(self, port, data):
         se = ConfigCmd(port, data)
-    
+
     def intParameter1(self, port, data):
         flag1 = data[4]
         cmdData = data[7:]
-        
+
         which = cmdData[0]
-        binData = ''.join(map(chr, cmdData[1:]))
+        binData = bytes(cmdData[1:]) # ''.join(map(chr, cmdData[1:]))
         if len(binData) != 12:
             print("ERROR: Unexpected length %d" % (len(binData)))
             return False
@@ -176,9 +176,9 @@ class PacketParser:
     def intParameter2(self, port, data):
         flag1 = data[4]
         cmdData = data[7:]
-        
+
         which = cmdData[0]
-        binData = ''.join(map(chr, cmdData[1:]))
+        binData = bytes(cmdData[1:]) # ''.join(map(chr, cmdData[1:]))
         if len(binData) != 16:
             print("ERROR: Unexpected length %d" % (len(binData)))
             return False
@@ -188,7 +188,7 @@ class PacketParser:
     def floatParameter(self, port, data):
         flag1 = data[4]
         cmdData = data[7:]
-        binData = ''.join(map(chr, cmdData[1:]))
+        binData = bytes(cmdData[1:]) # ''.join(map(chr, cmdData[1:]))
         if len(binData) != 20:
             print("ERROR: Unexpected length %d" % (len(binData)))
             return False
