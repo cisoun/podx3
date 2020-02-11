@@ -1,7 +1,7 @@
 podx3
 =====
 
-Linux kernel contains support for some Line6 PODs, ~~but not X3, and
+Linux kernel contains [support for some Line6 PODs](https://github.com/torvalds/linux/tree/master/sound/usb/line6), ~~but not X3, and
 apparently also not for settings manipulation~~ and now also for X3 and
 settings manipulation.
 
